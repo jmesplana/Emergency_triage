@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Combined Triage System</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/17.0.2/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/17.0.2/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/6.26.0/babel.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.js"></script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const colorClasses = {
+            blue: {
+                base: "bg-blue-500",
+                hover: "bg-blue-600",
+            },
+            green: {
+                base: "bg-green-500",
+                hover: "bg-green-600",
+            },
+            red: {
+                base: "bg-red-500",
+                hover: "bg-red-600",
+            },
+            yellow: {
+                base: "bg-yellow-500",
+                hover: "bg-yellow-600",
+            },
+            gray: {
+                base: "bg-gray-500",
+                hover: "bg-gray-600",
+            },
+            orange: {
+                base: "bg-orange-500",
+                hover: "bg-orange-600",
+            },
+        };
+
+        const Button = ({ onClick, children, color = "blue" }) => {
+            const classes = colorClasses[color] || colorClasses.blue;
+            return (
+                <button
+                    onClick={onClick}
+                    className={`${classes.base} text-white px-4 py-2 rounded hover:${classes.hover} flex items-center justify-center`}
+                >
+                    {children}
+                </button>
+            );
+        };
+
+        const startLevels = [
+            {
+                name: "Immediate",
+                color: "red",
+                description: "Life-threatening condition requiring immediate attention",
+            },
+            {
+                name: "Delayed",
+                color: "yellow",
+                description: "Serious, non-life-threatening condition that requires care within 1-2 hours",
+            },
+            {
+                name: "Minor",
+                color: "green",
+                description: "Minor injuries or illnesses that can wait several hours for care",
+            },
+            {
+                name: "Deceased",
+                color: "gray",
+                description: "No signs of life, beyond immediate help",
+            },
+        ];
+
+        const mtsLevels = [
+            {
+                name: "Immediate",
+                color: "red",
+                timeFrame: "0 minutes",
+                description: "Immediate life-threatening condition",
+            },
+            {
+                name: "Very urgent",
+                color: "orange",
+                timeFrame: "10 minutes",
+                description: "Imminently life-threatening condition or severe pain",
+            },
+            {
+                name: "Urgent",
+                color: "yellow",
+                timeFrame: "60 minutes",
+                description: "Potentially serious condition requiring prompt attention",
+            },
+            {
+                name: "Standard",
+                color: "green",
+                timeFrame: "120 minutes",
+                description: "Stable condition with moderate symptoms",
+            },
+            {
+                name: "Non-urgent",
+                color: "blue",
+                timeFrame: "240 minutes",
+                description: "Minor condition that can safely wait",
+            },
+        ];
+
+        const startQuestions = [
+            {
+                text: "Can the patient walk?",
+                action: (answer) => (answer ? 2 : "next"),
+                explanation: "Patients who can walk are often classified as Minor (Green) as they can likely wait for treatment.",
+            },
+            {
+                text: "Is the patient breathing?",
+                action: (answer) => (answer ? "next" : 3),
+                explanation: "Non-breathing patients who don\"t respond to airway opening are classified as Deceased (Black).",
+            },
+            {
+                text: "Is the respiratory rate < 30/min?",
+                action: (answer) => (answer ? "next" : 0),
+                explanation: "Respiratory rates over 30/min indicate respiratory distress, requiring Immediate (Red) attention.",
+            },
+            {
+                text: "Is capillary refill < 2 seconds?",
+                action: (answer) => (answer ? "next" : 0),
+                explanation: "Capillary refill > 2 seconds suggests poor perfusion, requiring Immediate (Red) attention.",
+            },
+            {
+                text: "Can the patient follow simple commands?",
+                action: (answer) => (answer ? 1 : 0),
+                explanation: "Patients who can\"t follow commands may have altered mental status, requiring Immediate (Red) attention. Otherwise, they are classified as Delayed (Yellow).",
+            },
+        ];
+
+        const mtsQuestions = [
+            {
+                text: "Is there an immediate threat to life?",
+                level: 0,
+                explanation: "Immediate life threats require immediate medical attention.",
+            },
+            {
+                text: "Is there severe pain or breathing difficulty?",
+                level: 1,
+                explanation: "Severe pain or breathing problems need very urgent care.",
+            },
+            {
+                text: "Is there significant bleeding or chest pain?",
+                level: 2,
+                explanation: "Significant bleeding or chest pain requires urgent attention.",
+            },
+            {
+                text: "Is there moderate pain or a high fever?",
+                level: 3,
+                explanation: "Moderate symptoms or high fever warrant standard care.",
+            },
+            {
+                text: "Is it a minor injury or illness?",
+                level: 4,
+                explanation: "Minor injuries or illnesses can usually wait for non-urgent care.",
+            },
+        ];
+
+        const QuestionCard = ({ question, explanation, onAnswer }) => (
+            <div className="bg-white rounded-lg shadow-md p-6 w-full max-w-md">
+                <h2 className="text-xl font-semibold mb-4">{question}</h2>
+                <div className="flex justify-between mb-4">
+                    <Button onClick={() => onAnswer(true)} color="green">Yes</Button>
+                    <Button onClick={() => onAnswer(false)} color="red">No</Button>
+                </div>
+                <p className="text-sm text-gray-600 italic">{explanation}</p>
+            </div>
+        );
+
+        const ResultCard = ({ result, system, onReset }) => {
+            return (
+                <div className="bg-white rounded-lg shadow-md p-6 w-full max-w-md">
+                    <h2 className="text-xl font-semibold mb-4">Triage Result ({system})</h2>
+                    <div className="flex items-center mb-4">
+                        <span className={`inline-block w-4 h-4 rounded-full mr-2 ${colorClasses[result.color].base}`}></span>
+                        <span className="font-bold" style={{ color: `#${result.color === "gray" ? "1a202c" : result.color === "red" ? "#e53e3e" : result.color === "yellow" ? "#d69e2e" : result.color === "green" ? "#38a169" : result.color === "orange" ? "#dd6b20" : "#3182ce"}` }}>
+                            {result.name}
+                        </span>
+                    </div>
+                    <p className="mb-4" style={{
+                        color: `#${result.color === "gray" ? "1a202c" : result.color === "red" ? "#e53e3e" : result.color === "yellow" ? "#d69e2e" : result.color === "green" ? "#38a169" : result.color === "orange" ? "#dd6b20" : "#3182ce"}`,
+                    }}>
+                        {system === "START" ? result.description : `Time frame: ${result.timeFrame}`}
+                    </p>
+                    <p className="mb-4 text-sm text-gray-600">{result.description}</p>
+                    <Button onClick={onReset}>Start Over</Button>
+                </div>
+            );
+        };
+
+        const SystemInfo = ({ system, onClose }) => (
+            <div className="bg-white rounded-lg shadow-md p-6 w-full max-w-md mt-4">
+                <h3 className="text-lg font-semibold mb-2">{system} Triage System</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                    {system === "START"
+                        ? "START (Simple Triage and Rapid Treatment) is designed for mass casualty incidents. It quickly assesses and sorts patients based on the severity of their injuries."
+                        : "MTS (Manchester Triage System) is used in hospital emergency departments for more detailed patient assessment, categorizing patients into five urgency levels."}
+                </p>
+                <Button onClick={onClose} color="gray">Close</Button>
+            </div>
+        );
+
+        const TriageApp = () => {
+            const [system, setSystem] = React.useState(null);
+            const [currentQuestion, setCurrentQuestion] = React.useState(0);
+            const [triageResult, setTriageResult] = React.useState(null);
+            const [showInfo, setShowInfo] = React.useState(null);
+
+            const resetTriage = () => {
+                setSystem(null);
+                setCurrentQuestion(0);
+                setTriageResult(null);
+                setShowInfo(null);
+            };
+
+            const handleSystemSelection = (selectedSystem) => {
+                setSystem(selectedSystem);
+            };
+
+            const handleSTARTAnswer = (answer) => {
+                const currentQ = startQuestions[currentQuestion];
+                const result = currentQ.action(answer);
+
+                if (typeof result === "number") {
+                    setTriageResult(startLevels[result]);
+                } else if (result === "next") {
+                    if (currentQuestion < startQuestions.length - 1) {
+                        setCurrentQuestion(currentQuestion + 1);
+                    } else {
+                        setTriageResult(startLevels[2]);
+                    }
+                }
+            };
+
+            const handleMTSAnswer = (answer) => {
+                if (answer) {
+                    setTriageResult(mtsLevels[mtsQuestions[currentQuestion].level]);
+                } else if (currentQuestion < mtsQuestions.length - 1) {
+                    setCurrentQuestion(currentQuestion + 1);
+                } else {
+                    setTriageResult(mtsLevels[4]);
+                }
+            };
+
+            const renderContent = () => {
+                if (!system) {
+                    return (
+                        <div className="bg-white rounded-lg shadow-md p-6 w-full max-w-md">
+                            <h2 className="text-xl font-semibold mb-4">Select Triage System</h2>
+                            <div className="flex flex-col space-y-4">
+                                <Button onClick={() => handleSystemSelection("START")}>START (Mass Casualty)</Button>
+                                <Button onClick={() => handleSystemSelection("MTS")}>MTS (Emergency Department)</Button>
+                            </div>
+                            <div className="mt-4 flex justify-between">
+                                <Button onClick={() => setShowInfo("START")} color="gray">About START</Button>
+                                <Button onClick={() => setShowInfo("MTS")} color="gray">About MTS</Button>
+                            </div>
+                        </div>
+                    );
+                }
+
+                if (triageResult) {
+                    return (
+                        <ResultCard
+                            result={triageResult}
+                            system={system}
+                            onReset={resetTriage}
+                        />
+                    );
+                }
+
+                const questions = system === "START" ? startQuestions : mtsQuestions;
+                const currentQ = questions[currentQuestion];
+
+                return (
+                    <QuestionCard
+                        question={currentQ.text}
+                        explanation={currentQ.explanation}
+                        onAnswer={system === "START" ? handleSTARTAnswer : handleMTSAnswer}
+                    />
+                );
+            };
+
+            return (
+                <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
+                    <h1 className="text-2xl font-bold mb-6">Combined Triage System</h1>
+                    {renderContent()}
+                    {showInfo && (
+                        <SystemInfo
+                            system={showInfo}
+                            onClose={() => setShowInfo(null)}
+                        />
+                    )}
+                </div>
+            );
+        };
+
+        ReactDOM.render(<TriageApp />, document.getElementById("root"));
+    </script>
+</body>
+</html>
